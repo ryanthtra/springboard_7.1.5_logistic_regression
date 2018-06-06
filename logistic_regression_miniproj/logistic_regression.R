@@ -100,9 +100,33 @@ plot(allEffects(hyp.out))
 
 ##   1. Use glm to conduct a logistic regression to predict ever worked
 ##      (everwrk) using age (age_p) and marital status (r_maritl).
+NH11_simple = NH11[c("everwrk", "age_p", "r_maritl")]
+# Anything else besides Yes or No will be NA
+NH11_simple$everwrk <- factor(NH11$everwrk, levels = c("1 Yes", "2 No"))
+library(mice)
+set.seed(144)
+# Using MICE to impute the NA data
+NH11_imputed = complete(mice(NH11_simple))
+summary(NH11_imputed)
+# Creating the logistical model
+everwrkMod = glm(everwrk ~ r_maritl*age_p, data = NH11_imputed, family = binomial)
+summary(everwrkMod)
+
+
 ##   2. Predict the probability of working for each level of marital
 ##      status.
+everwkPredict = predict(everwrkMod, type = "response")
+summary(everwkPredict)
+NH11_predict <- NH11_imputed
+NH11_predict["predictedEverwk"] <- everwkPredict
 
+library(dplyr)
+married_spouse_in_household <- NH11_predict %>% filter(r_maritl == "1 Married - spouse in household")
+table(married_spouse_in_household$everwrk, married_spouse_in_household$predictedEverwk < 0.2)
+widowed <- NH11_predict %>% filter(r_maritl == "4 Widowed")
+table(widowed$everwrk, widowed$predictedEverwk < 0.2)
+table(NH11_imputed$r_maritl, NH11_imputed$everwrk)
+plot(allEffects(everwrkMod))
 ##   Note that the data is not perfectly clean and ready to be modeled. You
 ##   will need to clean up at least some of the variables before fitting
 ##   the model.
